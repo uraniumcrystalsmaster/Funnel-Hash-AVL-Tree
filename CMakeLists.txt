@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Werror") # remove -Wall if you don't want as many warnings treated as errors
 # gradescope does use -Werror, so if you remove it here you may run into issues when trying to submit
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}" )
-
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 ##pull in desired version of catch through cmake automatically, make it available
 Include(FetchContent)
 FetchContent_Declare(
@@ -20,7 +20,14 @@ FetchContent_MakeAvailable(Catch2)
 include_directories(src)
 
 add_executable(Main
-        src/main.cpp # your main file
+        src/main.cpp
+        "src/Elastic Hash Map.h"
+        "src/AVL Tree.h"
+        src/Student.h
+        src/Student_Manager.h
+        "src/Funnel Hash Map.h"
+        "src/Funnel Hash Map Stack-only.h"
+        "src/AVL Tree Stack-only.h" # your main file
         # add your own header files below - should be automatically added in CLion
         # example (can also separate with newlines):
         # src/AVL.h src/AVL.cpp
@@ -28,7 +35,9 @@ add_executable(Main
         
 # These tests can use the Catch2-provided main
 add_executable(Tests
-        test/test.cpp # your test file
+        test/test.cpp
+        "src/AVL Tree.h"
+        src/Student.h # your test file
         # add your own header files below - should be automatically added in CLion
         # example (can also separate with newlines):
         # src/AVL.h src/AVL.cpp
