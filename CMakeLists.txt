@@ -21,13 +21,13 @@ include_directories(src)
 
 add_executable(Main
         src/main.cpp
-        "src/Elastic Hash Map.h"
-        "src/AVL Tree.h"
+        "src/Elastic_Hash_Map.h"
+        "src/AVL_Tree.h"
         src/Student.h
         src/Student_Manager.h
-        "src/Funnel Hash Map.h"
-        "src/Funnel Hash Map Stack-only.h"
-        "src/AVL Tree Stack-only.h" # your main file
+        "src/Funnel_Hash_Map.h"
+        "src/Funnel_Hash_Map_Stack-only.h"
+        "src/AVL_Tree_Stack-only.h" # your main file
         # add your own header files below - should be automatically added in CLion
         # example (can also separate with newlines):
         # src/AVL.h src/AVL.cpp
@@ -36,7 +36,7 @@ add_executable(Main
 # These tests can use the Catch2-provided main
 add_executable(Tests
         test/test.cpp
-        "src/AVL Tree.h"
+        "src/AVL_Tree.h"
         src/Student.h # your test file
         # add your own header files below - should be automatically added in CLion
         # example (can also separate with newlines):
