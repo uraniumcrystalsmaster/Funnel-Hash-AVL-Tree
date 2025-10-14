@@ -7,8 +7,8 @@
 #include <stack>
 //#include <unordered_map>
 #include <vector>
-//#include "Elastic Hash Map.h" //doesn't work
-#include "Funnel Hash Map.h"
+//#include "Elastic_Hash_Map.h" //doesn't work
+#include "Funnel_Hash_Map.h"
 template <typename Key, typename Value>
 class AVL_Tree{
     public:
@@ -21,9 +21,9 @@ class AVL_Tree{
             int height = 0;
         };
     private:
-        //std::unordered_map<Key, NodeProps> umap; // worst case practically O(N)
-        //ElasticHashMap<Key, NodeProps> umap;   // worst case practically O(1)
-        FunnelHashMap<Key, NodeProps> umap;     // worst case practically O(1)
+        //std::unordered_map<Key, NodeProps> umap; // expected worst case O(N)
+        //Elastic_Hash_Map<Key, NodeProps> umap;   // expected worst case O(1)
+        Funnel_Hash_Map<Key, NodeProps> umap;     // expected worst case O(1)
         Key root_key = Key{};
     public:
         explicit AVL_Tree(size_t N,double load_factor = 0.75) : umap(N) {

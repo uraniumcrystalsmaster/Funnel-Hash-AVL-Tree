@@ -21,7 +21,7 @@ available at: https://arxiv.org/abs/2501.02305
 #include <new>
 
 template <typename Key, typename Value>
-class FunnelHashMap {
+class Funnel_Hash_Map {
 public:
     // A Slot can be occupied, deleted (tombstone), or empty.
     struct Slot {
@@ -84,7 +84,7 @@ private:
 public:
     // Implementing a full-featured iterator class
     class iterator {
-        FunnelHashMap* map_ptr;
+        Funnel_Hash_Map* map_ptr;
         size_t level_idx;
         size_t slot_idx;
         bool in_special_array;
@@ -124,7 +124,7 @@ public:
         using pointer = value_type*;
         using reference = value_type&;
 
-        iterator(FunnelHashMap* map, size_t l_idx, size_t s_idx, bool special)
+        iterator(Funnel_Hash_Map* map, size_t l_idx, size_t s_idx, bool special)
             : map_ptr(map), level_idx(l_idx), slot_idx(s_idx), in_special_array(special) {}
 
         reference operator*() const {
@@ -162,7 +162,7 @@ public:
         }
     };
 
-    explicit FunnelHashMap(size_t num_items_to_insert, double delta = 0.1) {
+    explicit Funnel_Hash_Map(size_t num_items_to_insert, double delta = 0.1) {
         if (num_items_to_insert == 0) num_items_to_insert = 1; // Handle 0 case
         if (!(delta > 0 && delta < 1)) {
             throw std::invalid_argument("delta must be between 0 and 1.");
