@@ -167,7 +167,7 @@ class AVL_Tree{
 
             // Start insertion
             if(this->root_key == Key{}) {
-                umap.insert(map_pair);
+                umap.emplace(map_pair);
                 this->root_key = key;
                 //std::cerr << "Insertion of root with key '" << key << "'\n";
                 std::cout << "successful" << std::endl;
@@ -177,7 +177,7 @@ class AVL_Tree{
             while(true) {
                 if(key < nav_key) {
                     if(umap.find(nav_key)->second.left_key == Key{}) {
-                        umap.insert(map_pair);
+                        umap.emplace(map_pair);
                         umap.find(nav_key)->second.left_key = key;
                         umap.find(key)->second.parent_key = nav_key;
                         Key balance_nav_key = key;
@@ -196,7 +196,7 @@ class AVL_Tree{
                 }
                 else {
                     if(umap.find(nav_key)->second.right_key == Key{}) {
-                        umap.insert(map_pair);
+                        umap.emplace(map_pair);
                         umap.find(nav_key)->second.right_key = key;
                         umap.find(key)->second.parent_key = nav_key;
                         Key balance_nav_key = key;

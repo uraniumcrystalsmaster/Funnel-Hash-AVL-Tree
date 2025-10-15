@@ -9,16 +9,17 @@ available at: https://arxiv.org/abs/2501.02305
  */
 #ifndef FUNNEL_HASH_MAP_H
 #define FUNNEL_HASH_MAP_H
-#include <vector>
-#include <cmath>
-#include <iostream>
-#include <utility>
-#include <functional>
-#include <stdexcept>
-#include <random>
 #include <chrono>
+#include <cmath>
+#include <functional>
+#include <iostream>
 #include <limits>
 #include <new>
+#include <random>
+#include <stdexcept>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 template <typename Key, typename Value>
 class Funnel_Hash_Map {
@@ -162,6 +163,86 @@ public:
         }
     };
 
+    class const_iterator {
+        const Funnel_Hash_Map* map_ptr;
+        size_t level_idx;
+        size_t slot_idx;
+        bool in_special_array;
+
+        // advance() is identical to the non-const version
+        void advance() {
+            if (in_special_array) {
+                slot_idx++;
+                while (slot_idx < map_ptr->special_array.size() && !map_ptr->special_array[slot_idx].is_occupied) {
+                    slot_idx++;
+                }
+            } else {
+                slot_idx++;
+                while (level_idx < map_ptr->levels.size()) {
+                    if (slot_idx < map_ptr->levels[level_idx].size()) {
+                        if (map_ptr->levels[level_idx][slot_idx].is_occupied) {
+                            return;
+                        }
+                        slot_idx++;
+                    } else {
+                        level_idx++;
+                        slot_idx = 0;
+                    }
+                }
+                in_special_array = true;
+                slot_idx = 0;
+                while (slot_idx < map_ptr->special_array.size() && !map_ptr->special_array[slot_idx].is_occupied) {
+                    slot_idx++;
+                }
+            }
+        }
+
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type   = std::ptrdiff_t;
+        using value_type        = std::pair<const Key, Value>;
+        // The key difference: returns const references and pointers
+        using pointer           = const value_type*;
+        using reference         = const value_type&;
+
+        const_iterator(const Funnel_Hash_Map* map, size_t l_idx, size_t s_idx, bool special)
+            : map_ptr(map), level_idx(l_idx), slot_idx(s_idx), in_special_array(special) {}
+
+        reference operator*() const {
+            if (in_special_array) {
+                return map_ptr->special_array[slot_idx].data;
+            }
+            return map_ptr->levels[level_idx][slot_idx].data;
+        }
+
+        pointer operator->() const {
+            if (in_special_array) {
+                return &map_ptr->special_array[slot_idx].data;
+            }
+            return &map_ptr->levels[level_idx][slot_idx].data;
+        }
+
+        const_iterator& operator++() {
+            advance();
+            return *this;
+        }
+
+        const_iterator operator++(int) {
+            const_iterator temp = *this;
+            advance();
+            return temp;
+        }
+
+        bool operator==(const const_iterator& other) const {
+            return map_ptr == other.map_ptr && level_idx == other.level_idx &&
+                   slot_idx == other.slot_idx && in_special_array == other.in_special_array;
+        }
+
+        bool operator!=(const const_iterator& other) const {
+            return !(*this == other);
+        }
+    };
+
     explicit Funnel_Hash_Map(size_t num_items_to_insert, double delta = 0.1) {
         if (num_items_to_insert == 0) num_items_to_insert = 1; // Handle 0 case
         if (!(delta > 0 && delta < 1)) {
@@ -224,7 +305,7 @@ public:
         special_salt = dist(rng);
     }
 
-    size_t size() const {
+    size_t size() const noexcept {
         return num_inserts;
     }
 
@@ -306,6 +387,62 @@ public:
         return end();
     }
 
+    template<typename... Args>
+    bool emplace(Args&&... args) {
+        std::pair<Key, Value> temp_pair(std::forward<Args>(args)...);
+        const Key& key = temp_pair.first;
+        //insert
+        for (size_t i = 0; i < levels.size(); ++i) {
+            if (level_bucket_counts[i] == 0) continue;
+
+            size_t bucket_index = _hash_level(key, i) % level_bucket_counts[i];
+            size_t start = bucket_index * beta;
+            size_t end = start + beta;
+
+            for (size_t idx = start; idx < end; ++idx) {
+                Slot& slot = levels[i][idx];
+                if (!slot.is_occupied or slot.data.first == key) {
+                    if (!slot.is_occupied) {
+                        num_inserts++;
+                    }
+                    else{
+                        slot.data.~pair<const Key, Value>();
+                    }
+                    //replace old slot with inputted slot
+                    new (&slot.data) std::pair<const Key, Value>(std::forward<Args>(args)...);
+                    slot.is_occupied = true;
+                    slot.is_deleted = false;
+
+                    return true;
+                }
+            }
+        }
+
+        if (!special_array.empty()) {
+            size_t special_size = special_array.size();
+            for (size_t j = 0; j < special_size; ++j) {
+                size_t idx = (_hash_special(key) + j) % special_size;
+                Slot& slot = special_array[idx];
+                if (!slot.is_occupied or slot.data.first == key) {
+                    if (!slot.is_occupied) {
+                        num_inserts++;
+                    }
+                    else{
+                        slot.data.~pair<const Key, Value>();
+                    }
+                    //replace old slot with inputted slot
+                    new (&slot.data) std::pair<const Key, Value>(std::forward<Args>(args)...);
+                    slot.is_occupied = true;
+                    slot.is_deleted = false;
+
+                    return true;
+                }
+            }
+        }
+
+        throw std::runtime_error("Emplace failed: the hash table is full.");
+   }
+
     bool erase(const Key& key) {
         // Search primary levels
         for (size_t i = 0; i < levels.size(); ++i) {
@@ -355,6 +492,16 @@ public:
         return find(key) != end();
     }
 
+    bool empty() const noexcept {
+        return num_inserts == 0;
+    }
+
+    void clear() {
+        for(auto iter = this->begin(); iter != this->end(); ++iter){
+            erase(iter);
+        }
+    }
+
     iterator begin() {
         for (size_t i = 0; i < levels.size(); ++i) {
             for (size_t j = 0; j < levels[i].size(); ++j) {
@@ -371,8 +518,36 @@ public:
         return end();
     }
 
+    const_iterator begin() const {
+        for (size_t i = 0; i < levels.size(); ++i) {
+            for (size_t j = 0; j < levels[i].size(); ++j) {
+                if (levels[i][j].is_occupied) {
+                    return const_iterator(this, i, j, false);
+                }
+            }
+        }
+        for (size_t i = 0; i < special_array.size(); ++i) {
+            if (special_array[i].is_occupied) {
+                return const_iterator(this, levels.size(), i, true);
+            }
+        }
+        return end();
+    }
+
+    const_iterator cbegin() const noexcept {
+        return begin();
+    }
+
     iterator end() {
         return iterator(this, levels.size(), special_array.size(), true);
+    }
+
+    const_iterator end() const {
+        return const_iterator(this, levels.size(), special_array.size(), true);
+    }
+
+    const_iterator cend() const noexcept {
+        return end();
     }
 };
 
