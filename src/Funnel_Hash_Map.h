@@ -309,6 +309,14 @@ public:
         return num_inserts;
     }
 
+    size_t max_size() const noexcept {
+        return std::numeric_limits<std::ptrdiff_t>::max();
+    }
+
+    size_t count() const noexcept {
+        return 1;
+    }
+
     bool insert(const std::pair<Key, Value>& pair) {
         return insert(pair.first, pair.second);
     }
@@ -384,7 +392,7 @@ public:
             }
         }
 
-        return end();
+        return this->end();
     }
 
     template<typename... Args>
@@ -442,6 +450,67 @@ public:
 
         throw std::runtime_error("Emplace failed: the hash table is full.");
    }
+   template<class K>
+   Value& operator[](K&& x){
+        Slot* first_unoccupied_slot = nullptr;
+        for (size_t i = 0; i < levels.size(); ++i) {
+            if (level_bucket_counts[i] == 0) continue;
+
+            size_t bucket_index = _hash_level(x, i) % level_bucket_counts[i];
+            size_t start = bucket_index * beta;
+            size_t end = start + beta;
+
+            for (size_t idx = start; idx < end; ++idx) {
+                Slot& slot = levels[i][idx];
+                if(slot.occupied){
+                    if (slot.data.first == x) {
+                        return slot.data.second;
+                    }
+                }
+                else{
+                    if (first_unoccupied_slot == nullptr) {
+                        first_unoccupied_slot = &slot;
+                    }
+                }
+            }
+        }
+
+        if (!special_array.empty()) {
+            size_t special_size = special_array.size();
+            for (size_t j = 0; j < special_size; ++j) {
+                size_t idx = (_hash_special(x) + j) % special_size;
+                Slot& slot = special_array[idx];
+                if(slot.occupied){
+                    if (slot.data.first == x) {
+                        return slot.data.second;
+                    }
+                }
+                else{
+                     if (first_unoccupied_slot == nullptr) {
+                            first_unoccupied_slot = &slot;
+                     }
+                }
+            }
+        }
+       if(first_unoccupied_slot == nullptr){
+           throw std::runtime_error("Emplace failed: the hash table is full.");
+       }
+       if(first_unoccupied_slot->is_deleted){
+           first_unoccupied_slot->data.~pair<const Key, Value>();
+       }
+       else{
+           num_inserts++;
+       }
+       //replace old slot with slot to use
+       new (&first_unoccupied_slot->data) std::pair<const Key, Value>(
+           std::piecewise_construct,
+           std::forward_as_tuple(std::forward<K>(x)),
+           std::forward_as_tuple() // Empty tuple default constructs the value
+       );
+       first_unoccupied_slot->is_occupied = true;
+       first_unoccupied_slot->is_deleted = false;
+       return first_unoccupied_slot->data.second;
+   }
 
     bool erase(const Key& key) {
         // Search primary levels
@@ -489,7 +558,7 @@ public:
 
 
     bool contains(const Key& key) {
-        return find(key) != end();
+        return find(key) != this->end();
     }
 
     bool empty() const noexcept {
@@ -515,7 +584,7 @@ public:
                 return iterator(this, levels.size(), i, true);
             }
         }
-        return end();
+        return this->end();
     }
 
     const_iterator begin() const {
@@ -531,11 +600,11 @@ public:
                 return const_iterator(this, levels.size(), i, true);
             }
         }
-        return end();
+        return this->end();
     }
 
     const_iterator cbegin() const noexcept {
-        return begin();
+        return this->begin();
     }
 
     iterator end() {
@@ -547,7 +616,7 @@ public:
     }
 
     const_iterator cend() const noexcept {
-        return end();
+        return this->end();
     }
 };
 
