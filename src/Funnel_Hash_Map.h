@@ -313,8 +313,12 @@ public:
         return std::numeric_limits<std::ptrdiff_t>::max();
     }
 
-    size_t count() const noexcept {
-        return 1;
+    template<class K>
+    size_t count(const K& x) const{
+        if(this->find(x) != this->end()){
+            return 1;
+        }
+        return 0;
     }
 
     bool insert(const std::pair<Key, Value>& pair) {
@@ -450,6 +454,7 @@ public:
 
         throw std::runtime_error("Emplace failed: the hash table is full.");
    }
+
    template<class K>
    Value& operator[](K&& x){
         Slot* first_unoccupied_slot = nullptr;
