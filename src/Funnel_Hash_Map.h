@@ -399,6 +399,42 @@ public:
         return this->end();
     }
 
+    const_iterator find(const Key& key) const {
+        for (size_t i = 0; i < levels.size(); ++i) {
+            if (level_bucket_counts[i] == 0) continue;
+
+            size_t bucket_index = _hash_level(key, i) % level_bucket_counts[i];
+            size_t start = bucket_index * beta;
+            size_t end = start + beta;
+
+            for (size_t idx = start; idx < end; ++idx) {
+                const Slot& slot = levels[i][idx];
+                if (slot.is_occupied && slot.data.first == key) {
+                    return const_iterator(this, i, idx, false);
+                }
+                if (!slot.is_occupied && !slot.is_deleted) {
+                    break;
+                }
+            }
+        }
+
+        if (!special_array.empty()) {
+            size_t special_size = special_array.size();
+            for (size_t j = 0; j < special_size; ++j) {
+                size_t idx = (_hash_special(key) + j) % special_size;
+                const Slot& slot = special_array[idx];
+                if (slot.is_occupied && slot.data.first == key) {
+                    return const_iterator(this, levels.size(), idx, true);
+                }
+                if (!slot.is_occupied && !slot.is_deleted) {
+                    break;
+                }
+            }
+        }
+
+        return this->end();
+    }
+
     template<typename... Args>
     bool emplace(Args&&... args) {
         std::pair<Key, Value> temp_pair(std::forward<Args>(args)...);
