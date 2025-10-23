@@ -503,7 +503,7 @@ public:
 
             for (size_t idx = start; idx < end; ++idx) {
                 Slot& slot = levels[i][idx];
-                if(slot.occupied){
+                if(slot.is_occupied){
                     if (slot.data.first == x) {
                         return slot.data.second;
                     }
@@ -521,7 +521,7 @@ public:
             for (size_t j = 0; j < special_size; ++j) {
                 size_t idx = (_hash_special(x) + j) % special_size;
                 Slot& slot = special_array[idx];
-                if(slot.occupied){
+                if(slot.is_occupied){
                     if (slot.data.first == x) {
                         return slot.data.second;
                     }
@@ -602,13 +602,17 @@ public:
         return find(key) != this->end();
     }
 
+	bool contains(const Key& key) const {
+        return find(key) != this->cend();
+    }
+
     bool empty() const noexcept {
         return num_inserts == 0;
     }
 
     void clear() {
         for(auto iter = this->begin(); iter != this->end(); ++iter){
-            erase(iter);
+            erase(iter->first);
         }
     }
 
