@@ -1,1 +1,3 @@
 Features a unique hybrid data structure and a funnel hash C++ port. The hybrid data structure is a self-balancing AVL tree where the nodes are stored and managed within a high-performance, open-addressing hash map. Instead of using traditional pointers, the tree's structure is maintained by storing the keys of parent, left, and right children. This design combines the ordered traversal benefits of an AVL tree with the direct-access speed of a hash map.
+
+The funnel hash map includes a version for Nvidia GPUs with test cases. I plan to add AMD and Intel GPU support later.
