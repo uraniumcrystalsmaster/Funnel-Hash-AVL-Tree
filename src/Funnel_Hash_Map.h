@@ -666,4 +666,3 @@ public:
 };
 
 #endif // FUNNEL_HASH_MAP_H
-
