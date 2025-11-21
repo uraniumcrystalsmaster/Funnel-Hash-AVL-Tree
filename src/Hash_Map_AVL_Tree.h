@@ -6,9 +6,7 @@
 #define HASH_MAP_AVL_TREE_H
 #include <stack>
 //#include <unordered_map>
-#include <vector>
 #include <limits>
-//#include "Elastic_Hash_Map.h" //doesn't work
 #include "Funnel_Hash_Map.h"
 template <typename Key, typename Value>
 class Hash_Map_AVL_Tree{
@@ -23,7 +21,6 @@ class Hash_Map_AVL_Tree{
         };
     private:
         //std::unordered_map<Key, NodeProps> umap; // expected worst case O(N)
-        //Elastic_Hash_Map<Key, NodeProps> umap;   // expected worst case O(1)
         Funnel_Hash_Map<Key, NodeProps> umap;     // expected worst case O(1)
         Key root_key = Key{};
 
@@ -213,46 +210,53 @@ class Hash_Map_AVL_Tree{
             using iterator_category = std::bidirectional_iterator_tag;
             using difference_type   = std::ptrdiff_t;
             using value_type        = Value;
-            using pointer           = Value*;
-            using reference         = Value&;
+
+            // Proxy: This acts like the 'std::pair&' you get from std::map
+            struct PairProxy {
+                const Key& first;
+                Value& second;
+
+                PairProxy(const Key& k, Value& v) : first(k), second(v) {}
+            };
+
+            // ArrowProxy: This handles the '->' operator
+            struct ArrowProxy {
+                PairProxy proxy;
+                PairProxy* operator->() { return &proxy; }
+            };
+
+            using pointer           = ArrowProxy;
+            using reference         = PairProxy;
 
         private:
-            Hash_Map_AVL_Tree* tree_ptr;
-            Key current_key;
+            Hash_Map_AVL_Tree* map_ptr;
+            Key curr_key;
 
             // Private constructor so only the main class can create iterators
             iterator(Hash_Map_AVL_Tree* tree, Key key)
-                : tree_ptr(tree), current_key(key) {}
+                : map_ptr(tree), curr_key(key) {}
 
             friend class Hash_Map_AVL_Tree;
             friend class const_iterator;
 
         public:
-            iterator() : tree_ptr(nullptr), current_key(Key{}) {}
+            iterator() : map_ptr(nullptr), curr_key(Key{}) {}
 
-            // Dereference operator
+            // operator* : Returns the Proxy Object (mimics pair&)
             reference operator*() const {
-                return tree_ptr->umap.find(current_key)->second.value;
+                auto map_iter = map_ptr->umap.find(curr_key);
+                // We bind 'first' to the stable key in the map, 'second' to the value in NodeProps
+                return PairProxy(map_iter->first, map_iter->second.value);
             }
 
-            // Arrow operator
+            // operator-> : Returns the ArrowProxy (mimics pair*)
             pointer operator->() const {
-                return &(tree_ptr->umap.find(current_key)->second.value);
-            }
-
-            // Get the key
-            const Key& key() const {
-                return current_key;
-            }
-
-            // Get the value
-            Value& value() const {
-                return tree_ptr->umap.find(current_key)->second.value;
+                return ArrowProxy{ **this };
             }
 
             // Pre-increment (++it)
             iterator& operator++() {
-                current_key = tree_ptr->successor(current_key);
+                curr_key = map_ptr->successor(curr_key);
                 return *this;
             }
 
@@ -265,7 +269,7 @@ class Hash_Map_AVL_Tree{
 
             // Pre-decrement (--it)
             iterator& operator--() {
-                current_key = tree_ptr->predecessor(current_key);
+                curr_key = map_ptr->predecessor(curr_key);
                 return *this;
             }
 
@@ -277,17 +281,22 @@ class Hash_Map_AVL_Tree{
             }
 
             // Comparison operators
+            bool operator==(const const_iterator& other) const {
+                return map_ptr == other.map_ptr && curr_key == other.curr_key;
+            }
+
+            bool operator!=(const const_iterator& other) const {
+                return !(*this == other);
+            }
+
+            // Mixed-const-nonconst comparison
             bool operator==(const iterator& other) const {
-                return tree_ptr == other.tree_ptr && current_key == other.current_key;
+                return map_ptr == other.map_ptr && curr_key == other.curr_key;
             }
 
             bool operator!=(const iterator& other) const {
                 return !(*this == other);
             }
-
-            // mixed-mode comparison
-            bool operator==(const const_iterator& other) const;
-            bool operator!=(const const_iterator& other) const;
         };
 
 		class const_iterator {
@@ -295,54 +304,62 @@ class Hash_Map_AVL_Tree{
             // Iterator traits
             using iterator_category = std::bidirectional_iterator_tag;
             using difference_type   = std::ptrdiff_t;
-            using value_type        = const Value; // const
-            using pointer           = const Value*; // const
-            using reference         = const Value&; // const
+            using value_type        = const Value;
+		    struct PairProxyConst {
+		        const Key& first;
+		        const Value& second;
+
+		        PairProxyConst(const Key& k, const Value& v) : first(k), second(v) {}
+		    };
+
+		    struct ArrowProxyConst {
+		        PairProxyConst proxy;
+		        PairProxyConst* operator->() { return &proxy; }
+		    };
+
+		    using pointer           = ArrowProxyConst;
+		    using reference         = PairProxyConst;
 
         private:
-            // Store a CONST pointer to the tree
-            const Hash_Map_AVL_Tree* tree_ptr;
-            Key current_key;
+            const Hash_Map_AVL_Tree* map_ptr;
+            Key curr_key;
 
-            // Private constructor
             const_iterator(const Hash_Map_AVL_Tree* tree, Key key)
-                : tree_ptr(tree), current_key(key) {}
+                : map_ptr(tree), curr_key(key) {}
 
-            // Grant access
+
             friend class Hash_Map_AVL_Tree;
-            friend class iterator; // Allow iterator to access private members
+            friend class iterator;
 
         public:
-            // Default constructor
-            const_iterator() : tree_ptr(nullptr), current_key(Key{}) {}
+            const_iterator() : map_ptr(nullptr), curr_key(Key{}) {}
 
             // Converting constructor from non-const iterator
             const_iterator(const iterator& other)
-                : tree_ptr(other.tree_ptr), current_key(other.current_key) {}
+                : map_ptr(other.map_ptr), curr_key(other.current_key) {}
 
-            // Dereference operator
-            reference operator*() const {
-                return tree_ptr->umap.find(current_key)->second.value;
+		    reference operator*() const {
+                auto map_iter = map_ptr->umap.find(curr_key);
+                return PairProxyConst(map_iter->first, map_iter->second.value);
             }
 
-            // Arrow operator
-            pointer operator->() const {
-                return &(tree_ptr->umap.find(current_key)->second.value);
+		    pointer operator->() const {
+                return ArrowProxyConst{ **this };
             }
 
             // (Optional) Get the key
             const Key& key() const {
-                return current_key;
+                return curr_key;
             }
 
             // (Optional) Get the value
             const Value& value() const {
-                return tree_ptr->umap.find(current_key)->second.value;
+                return map_ptr->umap.find(curr_key)->second.value;
             }
 
             // Pre-increment (++it)
             const_iterator& operator++() {
-                current_key = tree_ptr->successor(current_key);
+                curr_key = map_ptr->successor(curr_key);
                 return *this;
             }
 
@@ -355,7 +372,7 @@ class Hash_Map_AVL_Tree{
 
             // Pre-decrement (--it)
             const_iterator& operator--() {
-                current_key = tree_ptr->predecessor(current_key);
+                curr_key = map_ptr->predecessor(curr_key);
                 return *this;
             }
 
@@ -370,7 +387,7 @@ class Hash_Map_AVL_Tree{
 
             // const_iterator == const_iterator
             bool operator==(const const_iterator& other) const {
-                return tree_ptr == other.tree_ptr && current_key == other.current_key;
+                return map_ptr == other.map_ptr && curr_key == other.curr_key;
             }
 
             // const_iterator != const_iterator
@@ -380,7 +397,7 @@ class Hash_Map_AVL_Tree{
 
             // const_iterator == iterator
             bool operator==(const iterator& other) const {
-                return tree_ptr == other.tree_ptr && current_key == other.current_key;
+                return map_ptr == other.tree_ptr && curr_key == other.current_key;
             }
 
             // const_iterator != iterator
@@ -389,7 +406,7 @@ class Hash_Map_AVL_Tree{
             }
         };
 
-        explicit Hash_Map_AVL_Tree(size_t N,double load_factor = 0.75) : umap(N) {
+        explicit Hash_Map_AVL_Tree(size_t N,double load_factor = 0.9) : umap(N) {
             //umap.reserve(N);
         }
 
